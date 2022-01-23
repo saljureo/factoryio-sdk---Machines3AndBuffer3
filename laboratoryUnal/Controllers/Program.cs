@@ -39,7 +39,7 @@ namespace Controllers
             //Forcing a rising edge on the start MemoryBit so FACTORY I/O can detect it
             SwitchToRun(start);
 
-            Controller controller = new Machines3AndBuffer();
+            Controller controller = new Machines3AndBuffer3();
 
             Console.WriteLine(string.Format("Running controller: {0}", controller.GetType().Name));
             Console.WriteLine("Press Ctrl+C to shutdown...");
