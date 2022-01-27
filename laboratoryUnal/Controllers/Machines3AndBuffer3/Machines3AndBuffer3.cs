@@ -292,6 +292,7 @@ namespace Controllers.Scenes.MachinesAndBuffer
 
         public Machines3AndBuffer3()// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%% CONSTRUCTOR STARTS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         {
+            { 
             //Reader
             newState = "";
             newStateName = "";
@@ -539,7 +540,7 @@ namespace Controllers.Scenes.MachinesAndBuffer
 
             //Trick for printing initial state in console after start up messages
             initialStateMessagePrinted = false;
-
+            }
         } // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%% CONSTRUCTOR ENDS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
         public override void Execute(int elapsedMilliseconds) // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%% EXECUTE STARTS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -564,7 +565,7 @@ namespace Controllers.Scenes.MachinesAndBuffer
             //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% BUTTON LIGHTS START %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
             //mc1
-            if (supervisoryControl.IsInActiveEventsLights("s1"))
+            if (supervisoryControl.IsInActiveEventsLights("e1"))
                 mc1StartButtonLight.Value = true;
             else
                 mc1StartButtonLight.Value = false;
@@ -580,7 +581,7 @@ namespace Controllers.Scenes.MachinesAndBuffer
                 mc1FailButtonLight.Value = false;
 
             //mc2
-            if (supervisoryControl.IsInActiveEventsLights("s2"))
+            if (supervisoryControl.IsInActiveEventsLights("e2"))
                 mc2StartButtonLight.Value = true;
             else
                 mc2StartButtonLight.Value = false;
@@ -596,7 +597,7 @@ namespace Controllers.Scenes.MachinesAndBuffer
                 mc2FailButtonLight.Value = false;
 
             //mc3
-            if (supervisoryControl.IsInActiveEventsLights("s3"))
+            if (supervisoryControl.IsInActiveEventsLights("e3"))
                 mc3StartButtonLight.Value = true;
             else
                 mc3StartButtonLight.Value = false;
@@ -653,14 +654,14 @@ namespace Controllers.Scenes.MachinesAndBuffer
             }
 
             //s1
-            if (mc1StartButton.Value == true || (newStateName == "s1" && supervisoryControl.IsInActiveEvents(int.Parse(newState))))
+            if (mc1StartButton.Value == true || (newStateName == "e1" && supervisoryControl.IsInActiveEvents(int.Parse(newState))))
             {
                 if (!timeStartBool)
                     timeStartBool = true;
 
                 if (s1Counter == 0)
                 {
-                    supervisoryApproval = supervisoryControl.On("s1");
+                    supervisoryApproval = supervisoryControl.On("e1");
                     if (supervisoryApproval == true)
                     {
                         eventsMc = Events.s1;
@@ -692,11 +693,11 @@ namespace Controllers.Scenes.MachinesAndBuffer
             }
 
             //s2
-            if (mc2StartButton.Value == true || (newStateName == "s2" && supervisoryControl.IsInActiveEvents(int.Parse(newState))))
+            if (mc2StartButton.Value == true || (newStateName == "e2" && supervisoryControl.IsInActiveEvents(int.Parse(newState))))
             {
                 if (s2Counter == 0)
                 {
-                    supervisoryApproval = supervisoryControl.On("s2");
+                    supervisoryApproval = supervisoryControl.On("e2");
                     if (supervisoryApproval == true)
                     {
                         eventsMc = Events.s2;
@@ -728,11 +729,11 @@ namespace Controllers.Scenes.MachinesAndBuffer
             }
 
             //s3
-            if (mc3StartButton.Value == true || (newStateName == "s3" && supervisoryControl.IsInActiveEvents(int.Parse(newState))))
+            if (mc3StartButton.Value == true || (newStateName == "e3" && supervisoryControl.IsInActiveEvents(int.Parse(newState))))
             {
                 if (s3Counter == 0)
                 {
-                    supervisoryApproval = supervisoryControl.On("s3");
+                    supervisoryApproval = supervisoryControl.On("e3");
                     if (supervisoryApproval == true)
                     {
                         eventsMc = Events.s3;
@@ -1102,14 +1103,14 @@ namespace Controllers.Scenes.MachinesAndBuffer
                     {
                         mc1Reset.Value = false;
                         mc1Status = McStatus.IDLE;
-                        supervisoryApproval = supervisoryControl.On("f1");
+                        supervisoryApproval = supervisoryControl.On("t1");
                         //mc1Failed = true; //will fail next time
                     }
                     else if (rtAtExitMc1.Q == true && mc1Failed == true)
                     {
                         mc1Reset.Value = false;
                         mc1Status = McStatus.DOWN;
-                        supervisoryApproval = supervisoryControl.On("b1");
+                        supervisoryApproval = supervisoryControl.On("f1");
                     }
                 }
 
@@ -1255,7 +1256,7 @@ namespace Controllers.Scenes.MachinesAndBuffer
                     conveyorBuffer2.Value = true;
                     eventsMc = Events.f2;
                     mc2Status = McStatus.IDLE;
-                    supervisoryApproval = supervisoryControl.On("f2");
+                    supervisoryApproval = supervisoryControl.On("t2");
                     //mc2Failed = true; //will fail next time
                 }
                 else if (rtAtExitMc2.Q == true && mc2Failed == true)
@@ -1263,7 +1264,7 @@ namespace Controllers.Scenes.MachinesAndBuffer
                     mc2Reset.Value = false;
                     eventsMc = Events.b2;
                     mc2Status = McStatus.DOWN;
-                    supervisoryApproval = supervisoryControl.On("b2");
+                    supervisoryApproval = supervisoryControl.On("f2");
                 }
             }
             //%%% MC2 WORKING ENDS %%%%
@@ -1399,14 +1400,14 @@ namespace Controllers.Scenes.MachinesAndBuffer
                     conveyorFinishedPiece.Value = true;
                     eventsMc = Events.f3;
                     mc3Status = McStatus.IDLE;
-                    supervisoryApproval = supervisoryControl.On("f3");
+                    supervisoryApproval = supervisoryControl.On("t3");
                     //mc2Failed = true; //will fail next time
                 }
                 else if (rtAtExitMc3.Q == true && mc3Failed == true)
                 {
                     eventsMc = Events.b3;
                     mc3Status = McStatus.DOWN;
-                    supervisoryApproval = supervisoryControl.On("b3");
+                    supervisoryApproval = supervisoryControl.On("f3");
                 }
             }
             //%%% MC3 WORKING ENDS %%%%
