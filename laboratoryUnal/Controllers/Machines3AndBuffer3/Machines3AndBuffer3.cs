@@ -137,9 +137,9 @@ namespace Controllers.Scenes.MachinesAndBuffer
         bool supervisoryApproval;
 
         //conveyor belts
-        readonly MemoryBit conveyorMc2Entrance;
-        readonly MemoryBit conveyorMc3Entrance;
-        readonly MemoryBit conveyorMc1Entrance;
+        readonly MemoryFloat conveyorMc2Entrance;
+        readonly MemoryFloat conveyorMc3Entrance;
+        readonly MemoryFloat conveyorMc1Entrance;
         readonly MemoryBit conveyorMc1BadPiece;
         readonly MemoryBit conveyorFinishedPiece;
         readonly MemoryBit conveyorMc2BadPiece;
@@ -456,9 +456,9 @@ namespace Controllers.Scenes.MachinesAndBuffer
             mc3Lights = new McLightsControl(mc3RedLight, mc3YellowLight, mc3GreenLight);
 
             //conveyor belts
-            conveyorMc2Entrance = MemoryMap.Instance.GetBit("Belt Conveyor (2m) 0", MemoryType.Output);
-            conveyorMc3Entrance = MemoryMap.Instance.GetBit("Belt Conveyor (2m) 7", MemoryType.Output);
-            conveyorMc1Entrance = MemoryMap.Instance.GetBit("Belt Conveyor (2m) 4", MemoryType.Output);
+            conveyorMc2Entrance = MemoryMap.Instance.GetFloat("Belt Conveyor (2m) 0 (V)", MemoryType.Output);
+            conveyorMc3Entrance = MemoryMap.Instance.GetFloat("Belt Conveyor (2m) 7 (V)", MemoryType.Output);
+            conveyorMc1Entrance = MemoryMap.Instance.GetFloat("Belt Conveyor (2m) 4 (V)", MemoryType.Output);
             conveyorMc1BadPiece = MemoryMap.Instance.GetBit("Belt Conveyor (2m) 1", MemoryType.Output);
             conveyorFinishedPiece = MemoryMap.Instance.GetBit("Belt Conveyor (2m) 2", MemoryType.Output);
             conveyorMc2BadPiece = MemoryMap.Instance.GetBit("Belt Conveyor (2m) 3", MemoryType.Output);
@@ -1064,7 +1064,7 @@ namespace Controllers.Scenes.MachinesAndBuffer
                     if (mc1PieceReadySteps == Mc1PieceReadySteps.SWITCHING_CONVEYORS)
                     {
                         conveyorEmitter.Value = true;//Turns on both conveyors
-                        conveyorMc1Entrance.Value = true;//Turns on both conveyors
+                        conveyorMc1Entrance.Value = 5.0f;//Turns on both conveyors
                         if (ftAtEmitter.Q == true)//If it exits emitter sensor
                         {
                             mc1PieceReadySteps = Mc1PieceReadySteps.REACHING_MC1ENTRANCE;
@@ -1076,7 +1076,7 @@ namespace Controllers.Scenes.MachinesAndBuffer
 
                         if (ftAtEntranceMc1.Q == true)
                         {
-                            conveyorMc1Entrance.Value = false;//Turns off mc1 entrance conveyor
+                            conveyorMc1Entrance.Value = 0;//Turns off mc1 entrance conveyor
                             mc1Start.Value = true;//Starts mc1
                             mc1PieceReadySteps = Mc1PieceReadySteps.IDLE;
                             mc1WorkingStage = Mc1WorkingStage.MACHINING_CENTER1;
@@ -1204,7 +1204,7 @@ namespace Controllers.Scenes.MachinesAndBuffer
                     buffer1Stopblade.Value = false;//Drop Stopblade
                     mc2Start.Value = true;
                     conveyorBuffer1.Value = true;//turn on both conveyors
-                    conveyorMc2Entrance.Value = true;//turn on both conveyors
+                    conveyorMc2Entrance.Value = 2.5f;//turn on both conveyors
 
                     if (sensorMc2loadingConveyorStart.Value == true)
                     {
@@ -1236,7 +1236,7 @@ namespace Controllers.Scenes.MachinesAndBuffer
                 }
                 else if (loadingMc2Step == Mc2andMc3LoadingSteps.REACHED_MC)
                 {
-                    conveyorMc2Entrance.Value = false;//turn off entrance conveyor
+                    conveyorMc2Entrance.Value = 0;//turn off entrance conveyor
                     loadingMc2Step = Mc2andMc3LoadingSteps.IDLE;
                 }
 
@@ -1354,7 +1354,7 @@ namespace Controllers.Scenes.MachinesAndBuffer
                     buffer2Stopblade.Value = false;//Drop Stopblade
                     mc3Start.Value = true;
                     conveyorBuffer2.Value = true;//turn on both conveyors
-                    conveyorMc3Entrance.Value = true;//turn on both conveyors
+                    conveyorMc3Entrance.Value = 1.0f;//turn on both conveyors
 
                     if (sensorMc3loadingConveyorStart.Value == true)
                     {
@@ -1386,7 +1386,7 @@ namespace Controllers.Scenes.MachinesAndBuffer
                 }
                 else if (loadingMc3Step == Mc2andMc3LoadingSteps.REACHED_MC)
                 {
-                    conveyorMc3Entrance.Value = false;//turn off entrance conveyor
+                    conveyorMc3Entrance.Value = 0;//turn off entrance conveyor
                     loadingMc3Step = Mc2andMc3LoadingSteps.IDLE;
                 }
 
