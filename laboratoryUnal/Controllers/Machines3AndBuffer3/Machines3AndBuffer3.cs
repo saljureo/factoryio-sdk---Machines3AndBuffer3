@@ -12,6 +12,10 @@ namespace Controllers.Scenes.MachinesAndBuffer
 {
     public class Machines3AndBuffer3 : Controller
     {
+        //Automatic or manual
+        readonly MemoryBit manual;
+        readonly MemoryBit automatic;
+
         //Reader
         string newState;
         string newStateName;
@@ -74,6 +78,7 @@ namespace Controllers.Scenes.MachinesAndBuffer
         readonly MemoryBit mc3Busy;
         readonly MemoryBit mc3PositionerClamped;
         readonly MemoryBit mc3GripperItemDetected;
+        readonly MemoryInt mc3Progress;
 
         //Mc3 outputs
         readonly MemoryBit mc3Start;
@@ -179,7 +184,9 @@ namespace Controllers.Scenes.MachinesAndBuffer
         Mc2andMc3LoadingSteps loadingMc3Step;
         Mc1PieceReady mc1PieceReady;
         Mc1PieceReadySteps mc1PieceReadySteps;
-        Events eventsMc;
+        Events eventsMc1;
+        Events eventsMc2;
+        Events eventsMc3;
         Mc1WorkingStage mc1WorkingStage;
 
         //Controllable events
@@ -256,21 +263,11 @@ namespace Controllers.Scenes.MachinesAndBuffer
         }
         private enum Events
         {
-            s1,
-            f1,
-            b1,
-            r1,
-            i1,
-            s2,
-            f2,
-            b2,
-            r2,
-            i2,
-            s3,
-            f3,
-            b3,
-            r3,
-            i3
+            s,
+            f,
+            b,
+            r,
+            i
         }
         private enum BreakdownMc2OrMc3
         {
@@ -292,14 +289,18 @@ namespace Controllers.Scenes.MachinesAndBuffer
 
         public Machines3AndBuffer3()// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%% CONSTRUCTOR STARTS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         {
-            { 
-            //Reader
-            newState = "";
-            newStateName = "";
-            changeStateMessagePrinted = false;
+            {
+                //Automatic or manual
+                automatic = MemoryMap.Instance.GetBit("1: Automatic", MemoryType.Input);
+                manual = MemoryMap.Instance.GetBit("0: Manual", MemoryType.Input);
 
-            //Mc1 inputs
-            mc1StartButton = MemoryMap.Instance.GetBit("Start Mc1", MemoryType.Input);
+                //Reader
+                newState = "";
+                newStateName = "";
+                changeStateMessagePrinted = false;
+
+                //Mc1 inputs
+                mc1StartButton = MemoryMap.Instance.GetBit("Start Mc1", MemoryType.Input);
             mc1FailButton = MemoryMap.Instance.GetBit("Force Failure Mc1", MemoryType.Input);
             mc1RepairButton = MemoryMap.Instance.GetBit("Repair Mc1", MemoryType.Input);
             mc1Busy = MemoryMap.Instance.GetBit("Machining Center 0 (Is Busy)", MemoryType.Input);
@@ -372,9 +373,10 @@ namespace Controllers.Scenes.MachinesAndBuffer
             mc3Busy = MemoryMap.Instance.GetBit("Machining Center 2 (Is Busy)", MemoryType.Input);
             mc3PositionerClamped = MemoryMap.Instance.GetBit("Right Positioner 1 (Clamped)", MemoryType.Input);//Mc3 positioner clamped sensor
             mc3GripperItemDetected = MemoryMap.Instance.GetBit("Two-Axis Pick & Place 2 (Item Detected)", MemoryType.Input);//Mc3 positioner item detected sensor
+                mc3Progress = MemoryMap.Instance.GetInt("Machining Center 2 (Progress)", MemoryType.Input);
 
-            //Mc3 outputs
-            mc3Start = MemoryMap.Instance.GetBit("Machining Center 2 (Start)", MemoryType.Output);
+                //Mc3 outputs
+                mc3Start = MemoryMap.Instance.GetBit("Machining Center 2 (Start)", MemoryType.Output);
             mc3RedLight = MemoryMap.Instance.GetBit("Stack Light 2 (Red)", MemoryType.Output);
             mc3YellowLight = MemoryMap.Instance.GetBit("Stack Light 2 (Yellow)", MemoryType.Output);
             mc3GreenLight = MemoryMap.Instance.GetBit("Stack Light 2 (Green)", MemoryType.Output);
@@ -500,7 +502,9 @@ namespace Controllers.Scenes.MachinesAndBuffer
             loadingMc3Step = Mc2andMc3LoadingSteps.IDLE;
             mc1PieceReady = Mc1PieceReady.NOT_READY;
             mc1PieceReadySteps = Mc1PieceReadySteps.IDLE;
-            eventsMc = Events.i1;
+            eventsMc1 = Events.i;
+            eventsMc2 = Events.i;
+            eventsMc3 = Events.i;
             mc1WorkingStage = Mc1WorkingStage.CONVEYOR;
 
             //FTRIG
@@ -563,7 +567,7 @@ namespace Controllers.Scenes.MachinesAndBuffer
             // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%% FAILING TIME AND DISPLAY END %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
             //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% BUTTON LIGHTS START %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+            { 
             //mc1
             if (supervisoryControl.IsInActiveEventsLights("e1"))
                 mc1StartButtonLight.Value = true;
@@ -611,158 +615,367 @@ namespace Controllers.Scenes.MachinesAndBuffer
                 mc3FailButtonLight.Value = true;
             else
                 mc3FailButtonLight.Value = false;
-
+            }
             //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% BUTTON LIGHTS END %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
             // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%% CONTROLLABLE EVENTS START %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
             // Keyboard input:
-            try
+            if (manual.Value)
             {
-                if (!changeStateMessagePrinted)
-                {
-                    changeStateMessagePrinted = true;
-                }
-                newStateName = "";
-                newState = Reader.ReadLine(5);
                 try
                 {
-                    newStateName = supervisoryControl.StateName(int.Parse(newState));
-                    if (newStateName != "Event number pressed does not exist")
+                    if (!changeStateMessagePrinted)
                     {
-                        if (!supervisoryControl.IsInActiveEvents(int.Parse(newState)))
+                        changeStateMessagePrinted = true;
+                    }
+                    newStateName = "";
+                    newState = Reader.ReadLine(5);
+                    try
+                    {
+                        newStateName = supervisoryControl.StateName(int.Parse(newState));
+                        if (newStateName != "Event number pressed does not exist")
                         {
-                            Console.WriteLine("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
-                            Console.WriteLine("\nEvent " + newState + " is not in active events. Try again.\n");
-                            Console.WriteLine("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
-                            supervisoryControl.ListOfActiveEvents();
+                            if (!supervisoryControl.IsInActiveEvents(int.Parse(newState)))
+                            {
+                                Console.WriteLine("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+                                Console.WriteLine("\nEvent " + newState + " is not in active events. Try again.\n");
+                                Console.WriteLine("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+                                supervisoryControl.ListOfActiveEvents();
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        Console.WriteLine("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+                        Console.WriteLine("\nSorry, please insert a number.\n");
+                        Console.WriteLine("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+                        supervisoryControl.ListOfActiveEvents();
+                    }
+                    changeStateMessagePrinted = false;
+                }
+                catch (TimeoutException)
+                {
+                }
+
+                //s1
+                if (mc1StartButton.Value == true || (newStateName == "e1" && supervisoryControl.IsInActiveEvents(int.Parse(newState))))
+                {
+                    if (!timeStartBool)
+                        timeStartBool = true;
+
+                    if (s1Counter == 0)
+                    {
+                        supervisoryApproval = supervisoryControl.On("e1");
+                        if (supervisoryApproval == true)
+                        {
+                            eventsMc1 = Events.s;
+                            s1Counter++;
                         }
                     }
                 }
-                catch
+                else
                 {
-                    Console.WriteLine("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
-                    Console.WriteLine("\nSorry, please insert a number.\n");
-                    Console.WriteLine("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
-                    supervisoryControl.ListOfActiveEvents();
+                    s1Counter = 0;
                 }
-                changeStateMessagePrinted = false;
-            }
-            catch (TimeoutException)
-            {
-            }
 
-            //s1
-            if (mc1StartButton.Value == true || (newStateName == "e1" && supervisoryControl.IsInActiveEvents(int.Parse(newState))))
-            {
-                if (!timeStartBool)
-                    timeStartBool = true;
-
-                if (s1Counter == 0)
+                //r1
+                if (mc1RepairButton.Value == true || (newStateName == "r1" && supervisoryControl.IsInActiveEvents(int.Parse(newState))))
                 {
+                    if (r1Counter == 0)
+                    {
+                        supervisoryApproval = supervisoryControl.On("r1");
+                        if (supervisoryApproval == true)
+                        {
+                            eventsMc1 = Events.r;
+                            r1Counter++;
+                        }
+                    }
+                }
+                else
+                {
+                    r1Counter = 0;
+                }
+
+                //s2
+                if (mc2StartButton.Value == true || (newStateName == "e2" && supervisoryControl.IsInActiveEvents(int.Parse(newState))))
+                {
+                    if (s2Counter == 0)
+                    {
+                        supervisoryApproval = supervisoryControl.On("e2");
+                        if (supervisoryApproval == true)
+                        {
+                            eventsMc2 = Events.s;
+                            s2Counter++;
+                        }
+                    }
+                }
+                else
+                {
+                    s2Counter = 0;
+                }
+
+                //r2
+                if (mc2RepairButton.Value == true || (newStateName == "r2" && supervisoryControl.IsInActiveEvents(int.Parse(newState))))
+                {
+                    if (r2Counter == 0)
+                    {
+                        supervisoryApproval = supervisoryControl.On("r2");
+                        if (supervisoryApproval == true)
+                        {
+                            eventsMc2 = Events.r;
+                            r2Counter++;
+                        }
+                    }
+                }
+                else
+                {
+                    r2Counter = 0;
+                }
+
+                //s3
+                if (mc3StartButton.Value == true || (newStateName == "e3" && supervisoryControl.IsInActiveEvents(int.Parse(newState))))
+                {
+                    if (s3Counter == 0)
+                    {
+                        supervisoryApproval = supervisoryControl.On("e3");
+                        if (supervisoryApproval == true)
+                        {
+                            eventsMc3 = Events.s;
+                            s3Counter++;
+                        }
+                    }
+                }
+                else
+                {
+                    s3Counter = 0;
+                }
+
+                //r3
+                if (mc3RepairButton.Value == true || (newStateName == "r3" && supervisoryControl.IsInActiveEvents(int.Parse(newState))))
+                {
+                    if (r3Counter == 0)
+                    {
+                        supervisoryApproval = supervisoryControl.On("r3");
+                        if (supervisoryApproval == true)
+                        {
+                            eventsMc3 = Events.r;
+                            r3Counter++;
+                        }
+                    }
+                }
+                else
+                {
+                    r3Counter = 0;
+                }
+            }
+            else if (automatic.Value)
+            {
+                //s1 auto
+                if (supervisoryControl.IsInActiveEventsString("e1"))
+                {
+                    if (!timeStartBool)
+                    {
+                        timeStartBool = true;
+                    }
+
                     supervisoryApproval = supervisoryControl.On("e1");
                     if (supervisoryApproval == true)
                     {
-                        eventsMc = Events.s1;
-                        s1Counter++;
+                        eventsMc1 = Events.s;
                     }
                 }
-            }
-            else
-            {
-                s1Counter = 0;
-            }
 
-            //r1
-            if (mc1RepairButton.Value == true || (newStateName == "r1" && supervisoryControl.IsInActiveEvents(int.Parse(newState))))
-            {
-                if (r1Counter == 0)
+                //r1 auto
+                if (supervisoryControl.IsInActiveEventsString("r1"))
                 {
-                    supervisoryApproval = supervisoryControl.On("r1");
-                    if (supervisoryApproval == true)
+                    try
                     {
-                        eventsMc = Events.r1;
-                        r1Counter++;
+                        if (!changeStateMessagePrinted)
+                        {
+                            changeStateMessagePrinted = true;
+                        }
+                        newStateName = "";
+                        newState = Reader.ReadLine(5);
+                        try
+                        {
+                            newStateName = supervisoryControl.StateName(int.Parse(newState));
+                            if (newStateName != "Event number pressed does not exist")
+                            {
+                                if (!supervisoryControl.IsInActiveEvents(int.Parse(newState)))
+                                {
+                                    Console.WriteLine("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+                                    Console.WriteLine("\nEvent " + newState + " is not in active events. Try again.\n");
+                                    Console.WriteLine("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+                                    supervisoryControl.ListOfActiveEvents();
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            Console.WriteLine("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+                            Console.WriteLine("\nSorry, please insert a number.\n");
+                            Console.WriteLine("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+                            supervisoryControl.ListOfActiveEvents();
+                        }
+                        changeStateMessagePrinted = false;
+                    }
+                    catch (TimeoutException)
+                    {
+                    }
+
+                    if (mc1RepairButton.Value == true || newStateName == "r1")
+                    {
+                        if (r1Counter == 0)
+                        {
+                            supervisoryApproval = supervisoryControl.On("r1");
+                            if (supervisoryApproval == true)
+                            {
+                                eventsMc1 = Events.r;
+                                r1Counter++;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        r1Counter = 0;
                     }
                 }
-            }
-            else
-            {
-                r1Counter = 0;
-            }
 
-            //s2
-            if (mc2StartButton.Value == true || (newStateName == "e2" && supervisoryControl.IsInActiveEvents(int.Parse(newState))))
-            {
-                if (s2Counter == 0)
+                //s2 auto
+                if (supervisoryControl.IsInActiveEventsString("e2"))
                 {
                     supervisoryApproval = supervisoryControl.On("e2");
                     if (supervisoryApproval == true)
                     {
-                        eventsMc = Events.s2;
-                        s2Counter++;
+                        eventsMc2 = Events.s;
                     }
                 }
-            }
-            else
-            {
-                s2Counter = 0;
-            }
 
-            //r2
-            if (mc2RepairButton.Value == true || (newStateName == "r2" && supervisoryControl.IsInActiveEvents(int.Parse(newState))))
-            {
-                if (r2Counter == 0)
+                //r2
+                if (supervisoryControl.IsInActiveEventsString("r2"))
                 {
-                    supervisoryApproval = supervisoryControl.On("r2");
-                    if (supervisoryApproval == true)
+                    try
                     {
-                        eventsMc = Events.r2;
-                        r2Counter++;
+                        if (!changeStateMessagePrinted)
+                        {
+                            changeStateMessagePrinted = true;
+                        }
+                        newStateName = "";
+                        newState = Reader.ReadLine(5);
+                        try
+                        {
+                            newStateName = supervisoryControl.StateName(int.Parse(newState));
+                            if (newStateName != "Event number pressed does not exist")
+                            {
+                                if (!supervisoryControl.IsInActiveEvents(int.Parse(newState)))
+                                {
+                                    Console.WriteLine("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+                                    Console.WriteLine("\nEvent " + newState + " is not in active events. Try again.\n");
+                                    Console.WriteLine("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+                                    supervisoryControl.ListOfActiveEvents();
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            Console.WriteLine("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+                            Console.WriteLine("\nSorry, please insert a number.\n");
+                            Console.WriteLine("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+                            supervisoryControl.ListOfActiveEvents();
+                        }
+                        changeStateMessagePrinted = false;
+                    }
+                    catch (TimeoutException)
+                    {
+                    }
+
+                    if (mc2RepairButton.Value == true || newStateName == "r2")
+                    {
+                        if (r2Counter == 0)
+                        {
+                            supervisoryApproval = supervisoryControl.On("r2");
+                            if (supervisoryApproval == true)
+                            {
+                                eventsMc2 = Events.r;
+                                r2Counter++;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        r2Counter = 0;
                     }
                 }
-            }
-            else
-            {
-                r2Counter = 0;
-            }
 
-            //s3
-            if (mc3StartButton.Value == true || (newStateName == "e3" && supervisoryControl.IsInActiveEvents(int.Parse(newState))))
-            {
-                if (s3Counter == 0)
+                //s3 auto
+                if (supervisoryControl.IsInActiveEventsString("e3"))
                 {
                     supervisoryApproval = supervisoryControl.On("e3");
                     if (supervisoryApproval == true)
                     {
-                        eventsMc = Events.s3;
-                        s3Counter++;
+                        eventsMc3 = Events.s;
                     }
                 }
-            }
-            else
-            {
-                s3Counter = 0;
-            }
 
-            //r3
-            if (mc3RepairButton.Value == true || (newStateName == "r3" && supervisoryControl.IsInActiveEvents(int.Parse(newState))))
-            {
-                if (r3Counter == 0)
+                //r3 auto
+                if (supervisoryControl.IsInActiveEventsString("r3"))
                 {
-                    supervisoryApproval = supervisoryControl.On("r3");
-                    if (supervisoryApproval == true)
+                    try
                     {
-                        eventsMc = Events.r3;
-                        r3Counter++;
+                        if (!changeStateMessagePrinted)
+                        {
+                            changeStateMessagePrinted = true;
+                        }
+                        newStateName = "";
+                        newState = Reader.ReadLine(5);
+                        try
+                        {
+                            newStateName = supervisoryControl.StateName(int.Parse(newState));
+                            if (newStateName != "Event number pressed does not exist")
+                            {
+                                if (!supervisoryControl.IsInActiveEvents(int.Parse(newState)))
+                                {
+                                    Console.WriteLine("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+                                    Console.WriteLine("\nEvent " + newState + " is not in active events. Try again.\n");
+                                    Console.WriteLine("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+                                    supervisoryControl.ListOfActiveEvents();
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            Console.WriteLine("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+                            Console.WriteLine("\nSorry, please insert a number.\n");
+                            Console.WriteLine("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+                            supervisoryControl.ListOfActiveEvents();
+                        }
+                        changeStateMessagePrinted = false;
+                    }
+                    catch (TimeoutException)
+                    {
+                    }
+
+                    if (mc3RepairButton.Value == true || newStateName == "r3")
+                    {
+                        if (r3Counter == 0)
+                        {
+                            supervisoryApproval = supervisoryControl.On("r3");
+                            if (supervisoryApproval == true)
+                            {
+                                eventsMc3 = Events.r;
+                                r3Counter++;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        r3Counter = 0;
                     }
                 }
             }
-            else
-            {
-                r3Counter = 0;
-            }
+            
             // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%% CONTROLLABLE EVENTS END %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
@@ -1045,12 +1258,12 @@ namespace Controllers.Scenes.MachinesAndBuffer
             if (mc1Status == McStatus.IDLE)
             {
                 mc1Lights.IdleLights();
-                if (eventsMc == Events.s1 && mc1PieceReady == Mc1PieceReady.READY)
+                if (eventsMc1 == Events.s && mc1PieceReady == Mc1PieceReady.READY)
                 {
                     mc1Status = McStatus.WORKING;
                     mc1WorkingStage = Mc1WorkingStage.CONVEYOR;
                     mc1PieceReadySteps = Mc1PieceReadySteps.SWITCHING_CONVEYORS;
-                    eventsMc = Events.i1;
+                    eventsMc1 = Events.i;
                 }
             }
             // %%%% MC1 IDLE ENDS %%%%%
@@ -1086,7 +1299,7 @@ namespace Controllers.Scenes.MachinesAndBuffer
                 }
                 else if (mc1WorkingStage == Mc1WorkingStage.MACHINING_CENTER1)
                 {
-                    if (mc1Busy.Value == true)
+                    if (mc1Progress.Value > 10)
                     {
                         mc1Start.Value = false;
                     }
@@ -1103,6 +1316,7 @@ namespace Controllers.Scenes.MachinesAndBuffer
                     {
                         mc1Reset.Value = false;
                         mc1Status = McStatus.IDLE;
+                        eventsMc1 = Events.i;
                         supervisoryApproval = supervisoryControl.On("t1");
                         //mc1Failed = true; //will fail next time
                     }
@@ -1110,6 +1324,7 @@ namespace Controllers.Scenes.MachinesAndBuffer
                     {
                         mc1Reset.Value = false;
                         mc1Status = McStatus.DOWN;
+                        eventsMc1 = Events.b;
                         supervisoryApproval = supervisoryControl.On("f1");
                     }
                 }
@@ -1124,10 +1339,11 @@ namespace Controllers.Scenes.MachinesAndBuffer
                 mc1AlarmSiren.Value = true;
                 mc1Lights.FailingLights();
 
-                if (eventsMc == Events.r1)
+                if (eventsMc1 == Events.r)
                 {
                     mc1Failed = false;//Next piece will not fail
                     mc1Status = McStatus.IDLE;
+                    eventsMc1 = Events.i;
                     mc1AlarmSiren.Value = false;
                 }
             }
@@ -1187,7 +1403,7 @@ namespace Controllers.Scenes.MachinesAndBuffer
             if (mc2Status == McStatus.IDLE)
             {
                 mc2Lights.IdleLights();
-                if (eventsMc == Events.s2 && buffer1Status != BufferStatus.EMPTY && loadingMc2Step == Mc2andMc3LoadingSteps.IDLE)
+                if (eventsMc2 == Events.s && buffer1Status != BufferStatus.EMPTY && loadingMc2Step == Mc2andMc3LoadingSteps.IDLE)
                 {
                     mc2Status = McStatus.WORKING;
                     loadingMc2Step = Mc2andMc3LoadingSteps.PIECE_TO_LOADING_CONVEYOR;
@@ -1240,7 +1456,7 @@ namespace Controllers.Scenes.MachinesAndBuffer
                     loadingMc2Step = Mc2andMc3LoadingSteps.IDLE;
                 }
 
-                if (mc2Busy.Value == true)
+                if (mc2Progress.Value > 10)
                 {
                     mc2Start.Value = false;
                 }
@@ -1254,7 +1470,7 @@ namespace Controllers.Scenes.MachinesAndBuffer
                 {
                     mc2Reset.Value = false;
                     conveyorBuffer2.Value = true;
-                    eventsMc = Events.f2;
+                    eventsMc2 = Events.i;
                     mc2Status = McStatus.IDLE;
                     supervisoryApproval = supervisoryControl.On("t2");
                     //mc2Failed = true; //will fail next time
@@ -1262,7 +1478,7 @@ namespace Controllers.Scenes.MachinesAndBuffer
                 else if (rtAtExitMc2.Q == true && mc2Failed == true)
                 {
                     mc2Reset.Value = false;
-                    eventsMc = Events.b2;
+                    eventsMc2 = Events.b;
                     mc2Status = McStatus.DOWN;
                     supervisoryApproval = supervisoryControl.On("f2");
                 }
@@ -1275,10 +1491,11 @@ namespace Controllers.Scenes.MachinesAndBuffer
                 mc2AlarmSiren.Value = true;
                 mc2Lights.FailingLights();
 
-                if (eventsMc == Events.r2)
+                if (eventsMc2 == Events.r)
                 {
                     mc2Failed = false;
                     mc2Status = McStatus.IDLE;
+                    eventsMc2 = Events.i;
                     mc2AlarmSiren.Value = false;
                 }
             }
@@ -1337,7 +1554,7 @@ namespace Controllers.Scenes.MachinesAndBuffer
             if (mc3Status == McStatus.IDLE)
             {
                 mc3Lights.IdleLights();
-                if (eventsMc == Events.s3 && buffer2Status != BufferStatus.EMPTY && loadingMc3Step == Mc2andMc3LoadingSteps.IDLE)
+                if (eventsMc3 == Events.s && buffer2Status != BufferStatus.EMPTY && loadingMc3Step == Mc2andMc3LoadingSteps.IDLE)
                 {
                     mc3Status = McStatus.WORKING;
                     loadingMc3Step = Mc2andMc3LoadingSteps.PIECE_TO_LOADING_CONVEYOR;
@@ -1390,7 +1607,7 @@ namespace Controllers.Scenes.MachinesAndBuffer
                     loadingMc3Step = Mc2andMc3LoadingSteps.IDLE;
                 }
 
-                if (mc3Busy.Value == true)
+                if (mc3Progress.Value > 10)
                 {
                     mc3Start.Value = false;
                 }
@@ -1398,14 +1615,14 @@ namespace Controllers.Scenes.MachinesAndBuffer
                 if (rtAtExitMc3.Q == true && mc3Failed == false)
                 {
                     conveyorFinishedPiece.Value = true;
-                    eventsMc = Events.f3;
+                    eventsMc3 = Events.i;
                     mc3Status = McStatus.IDLE;
                     supervisoryApproval = supervisoryControl.On("t3");
                     //mc2Failed = true; //will fail next time
                 }
                 else if (rtAtExitMc3.Q == true && mc3Failed == true)
                 {
-                    eventsMc = Events.b3;
+                    eventsMc3 = Events.b;
                     mc3Status = McStatus.DOWN;
                     supervisoryApproval = supervisoryControl.On("f3");
                 }
@@ -1418,10 +1635,11 @@ namespace Controllers.Scenes.MachinesAndBuffer
                 mc3AlarmSiren.Value = true;
                 mc3Lights.FailingLights();
 
-                if (eventsMc == Events.r3)
+                if (eventsMc3 == Events.r)
                 {
                     mc3Failed = false;
                     mc3Status = McStatus.IDLE;
+                    eventsMc3 = Events.i;
                     mc3AlarmSiren.Value = false;
                 }
             }
